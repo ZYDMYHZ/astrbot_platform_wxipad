@@ -1,0 +1,2 @@
+# astrbot_platform_wxipad
+基于ipad855协议的astrbot适配器
