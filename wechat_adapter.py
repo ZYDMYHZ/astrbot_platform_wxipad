@@ -110,7 +110,7 @@ class WechatPlatformAdapter(Platform):
     async def is_text_message(self, data: dict):
         """根据msg_type判断消息类型"""
         msg_type = data.get("msg_type", "")
-        if msg_type == 49: # 红包消息
+        if msg_type == 49: # xml消息
             if self.redbag_enabled:
                 # 开启红包助手
                 if self.redbag_interval >= 0:
@@ -157,6 +157,10 @@ class WechatPlatformAdapter(Platform):
                 elif ":" in push_content:
                     # 情况2：处理 "用户昵称: 消息内容"
                     nickname, actual_content = push_content.split(":", 1)
+                    nickname = nickname.strip()
+                elif ":\n" in raw_content:
+                    # 情况3：处理 "用户昵称:\n消息内容"
+                    nickname, actual_content = raw_content.split(":\n", 1)
                     nickname = nickname.strip()
 
                 # 去除nickname中的空格

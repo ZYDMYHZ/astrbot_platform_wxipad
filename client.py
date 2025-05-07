@@ -303,11 +303,45 @@ class ipad855Client:
             return False
 
 
+    def parse_redpacket_xml(self, content: str) -> bool:
+        """解析XML内容判断是否为红包消息"""
+        try:
+            if not content:
+                return False
+                
+            # 检查是否包含红包提示文本
+            if "<![CDATA[我给你发了一个红包，赶紧去拆!]]>" in content:
+                return True
+                
+            # 解析XML检查红包结构
+            xml_start = content.find('<msg>')
+            xml_end = content.find('</msg>')
+            if xml_start == -1 or xml_end == -1:
+                return False
+                
+            xml_content = content[xml_start:xml_end + 6]
+            root = ET.fromstring(xml_content)
+            return root.find('.//wcpayinfo') is not None
+            
+        except Exception as e:
+            logger.error(f"解析红包XML失败: {e}")
+            return False
+
     async def open_redbag(self, data: dict):
         """打开微信红包"""
+        if not data or 'content' not in data or not data['content'].get('str'):
+            logger.error("红包消息数据无效")
+            return None
+            
+        content = data['content']['str']
+        
+        # 先检查是否包含红包提示文本
+        if not self.parse_redpacket_xml(content):
+            logger.debug("非红包消息，忽略处理")
+            return None
+            
         try:
-            # Parse the XML content
-            content = data['content']['str']
+            # 提取XML内容
             xml_start = content.find('<msg>')
             xml_end = content.find('</msg>') + 6
             xml_content = content[xml_start:xml_end]
@@ -315,11 +349,19 @@ class ipad855Client:
             root = ET.fromstring(xml_content)
             wcpayinfo = root.find('.//wcpayinfo')
             
-            # Extract required fields
+            if wcpayinfo is None:
+                logger.error("红包消息中未找到wcpayinfo节点")
+                return None
+                
+            # 提取必要字段
             native_url = wcpayinfo.find('nativeurl').text
             url = wcpayinfo.find('url').text
             
-            # Parse URL parameters
+            if not native_url or not url:
+                logger.error("nativeurl或url内容为空")
+                return None
+                
+            # 解析URL参数
             url_params = parse_qs(urlparse(url).query)
             native_params = parse_qs(urlparse(native_url).query)
             
